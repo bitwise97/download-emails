@@ -1,0 +1,18 @@
+# Google credentials and the saved login: never commit these
+credentials.json
+token.json
+token*.json
+client_secret*.json
+
+# What has been downloaded, and the mail itself
+downloaded.json
+downloaded.json.bak
+*.eml
+*.txt
+!requirements*.txt
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
