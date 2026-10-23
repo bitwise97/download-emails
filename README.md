@@ -11,7 +11,8 @@ uv run python download_emails.py "Receipts"
   named like `2026-10-20 Sender Name - Subject line.txt`. The file has a few headers, then the message text with
   links kept and tracking parameters, invisible characters and HTML clutter removed.
 - Add `--eml` to also keep each message exactly as delivered (`.eml`) next to its `.txt`.
-- It remembers what it has downloaded, per label, so running it again fetches only new mail.
+- It remembers what it has downloaded, per label, so running it again fetches only new mail. To download a
+  label's emails again (for example after deleting the files), add `--all`.
 - It uses Gmail's **read-only** permission. It cannot delete, move, label or send anything.
 - Nothing is uploaded anywhere. Mail goes from Gmail to your computer, and the script talks only to Google.
 
@@ -74,6 +75,7 @@ The label name is required (use `--labels` to see yours; case is ignored). Neste
 | `--eml` | Also keep each original message as an `.eml` file. |
 | `--out FOLDER` | Save somewhere else (default `~/Downloads/download-emails`). |
 | `--limit N` | Download at most N emails this run. |
+| `--all` | Download every email in the label again, even ones already downloaded. Use it after deleting the files (the record in `downloaded.json` still says they were downloaded). It only affects the label you name, and works with `--dry-run`, `--limit` and `--eml`. |
 
 Each email is read back after it is written; only then is it recorded as downloaded. If one email fails the
 others still download, and the failed one is retried next time.
@@ -85,7 +87,7 @@ others still download, and the failed one is retried next time.
   out, delete `token.json`. To cut off access entirely, remove the app at
   [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
 - `downloaded.json` records which messages were downloaded (Gmail's message ids, the saved file names and
-  the time). Delete it to download everything again.
+  the time). Delete it to download everything again for every label, or use `--all` to start over for one label.
 - Downloaded email is as private as the email itself, so keep it out of public repositories and shared folders.
   The `.gitignore` excludes the credentials, your login, the record, and `.eml` files.
 

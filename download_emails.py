@@ -1,6 +1,7 @@
 """Download the emails in one Gmail label to readable text files on this computer.
 
     uv run python download_emails.py "Label Name"            # download the emails not yet downloaded
+    uv run python download_emails.py "Label Name" --all      # download every email again, even ones already downloaded
     uv run python download_emails.py "Label Name" --dry-run  # show what it would download; change nothing
     uv run python download_emails.py --labels                # list your Gmail labels (to check the name)
     uv run python download_emails.py "Label Name" --eml      # also keep the original message as .eml
@@ -17,7 +18,8 @@ With --eml each email is also saved as it was delivered, next to its .txt:
 
 The tool only READS your mailbox (the read-only Gmail permission) and never changes it.
 A record of what has been downloaded (downloaded.json, next to this file) means running it
-again only fetches new mail. Setup and safety notes are in README.md.
+again only fetches new mail; add --all to download everything in the label again (for example
+after deleting the files). Setup and safety notes are in README.md.
 """
 
 import argparse
@@ -395,6 +397,12 @@ def run(
     parser.add_argument(
         "--limit", type=int, default=0, help="download at most this many (0 = all)"
     )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="download every email in the label again, even ones already downloaded "
+        "(use it after deleting the downloaded files)",
+    )
     args = parser.parse_args(argv)
     if not args.labels and not args.label:
         parser.error(
@@ -411,13 +419,30 @@ def run(
         label_id = find_label_id(service, args.label)
         ids = list_message_ids(service, label_id)
         state = load_state(state_path)
-        new = [i for i in ids if state_key(label_id, i) not in state]
+        already = sum(1 for i in ids if state_key(label_id, i) in state)
+        # --all ignores the record for this label, so every email is fetched afresh and its
+        # entry is rewritten with the new file name.
+        new = (
+            list(ids)
+            if args.all
+            else [i for i in ids if state_key(label_id, i) not in state]
+        )
         if args.limit > 0:
             new = new[: args.limit]
-        already = sum(1 for i in ids if state_key(label_id, i) in state)
-        out(
-            f'"{args.label}" has {len(ids)} email(s); {already} already downloaded, {len(new)} to do.'
-        )
+        if args.all:
+            out(
+                f'"{args.label}" has {len(ids)} email(s); downloading {len(new)} of them again '
+                f"({already} had been downloaded before)."
+            )
+        else:
+            out(
+                f'"{args.label}" has {len(ids)} email(s); {already} already downloaded, {len(new)} to do.'
+            )
+            if not new and already:
+                out(
+                    "Nothing new. To download them all again (for example after deleting the "
+                    "files), add --all."
+                )
 
         if args.dry_run:
             for gmail_id in new:

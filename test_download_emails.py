@@ -379,6 +379,71 @@ class Command(unittest.TestCase):
         # The tool asks Gmail for the read-only permission and has no way to change mail.
         self.assertEqual(de.SCOPES, ["https://www.googleapis.com/auth/gmail.readonly"])
 
+    def test_a_second_run_downloads_nothing_and_says_how_to_start_over(self):
+        service = self.gmail(3)
+        self.run_cmd(service)
+        self.lines.clear()
+        code, text = self.run_cmd(service)
+        self.assertEqual(code, 0)
+        self.assertIn("3 already downloaded, 0 to do", text)
+        self.assertIn("--all", text)
+
+    def test_all_downloads_everything_again_after_the_files_were_deleted(self):
+        service = self.gmail(3)
+        self.run_cmd(service)
+        for path in self.out_dir.rglob("*.txt"):
+            path.unlink()
+        self.assertEqual(self.files(".txt"), [])
+        self.lines.clear()
+        code, text = self.run_cmd(service, "--all")
+        self.assertEqual(code, 0, text)
+        self.assertEqual(len(self.files(".txt")), 3)
+        self.assertIn("downloading 3 of them again (3 had been downloaded before)", text)
+        self.assertIn("Done: 3 downloaded, 0 failed", text)
+
+    def test_all_leaves_out_an_email_removed_from_the_label(self):
+        service = self.gmail(3)
+        self.run_cmd(service)
+        for path in self.out_dir.rglob("*.txt"):
+            path.unlink()
+        del service.mail["id2"]  # the user removed one in Gmail
+        self.lines.clear()
+        code, text = self.run_cmd(service, "--all")
+        self.assertEqual(code, 0, text)
+        names = self.files(".txt")
+        self.assertEqual(len(names), 2)
+        self.assertFalse(any("Role number 2" in n for n in names))
+
+    def test_all_only_affects_the_label_it_was_given(self):
+        service = self.gmail(2)
+        service.label_map["Other"] = "Label_2"
+        self.run_cmd(service)  # Alerts
+        self.run_cmd(service, label="Other")
+        self.lines.clear()
+        self.run_cmd(service, "--all")  # Alerts again
+        self.lines.clear()
+        _, text = self.run_cmd(service, label="Other")
+        self.assertIn("2 already downloaded, 0 to do", text)
+
+    def test_all_with_a_dry_run_changes_nothing(self):
+        service = self.gmail(2)
+        self.run_cmd(service)
+        before = self.state.read_text()
+        self.lines.clear()
+        code, text = self.run_cmd(service, "--all", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertEqual(text.count("would download"), 2)
+        self.assertEqual(self.state.read_text(), before)
+
+    def test_all_with_a_limit_downloads_at_most_that_many(self):
+        service = self.gmail(3)
+        self.run_cmd(service)
+        for path in self.out_dir.rglob("*.txt"):
+            path.unlink()
+        self.lines.clear()
+        self.run_cmd(service, "--all", "--limit", "2")
+        self.assertEqual(len(self.files(".txt")), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
